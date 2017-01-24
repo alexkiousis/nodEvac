@@ -1,0 +1,97 @@
+<html>
+<head>
+    <title>{{ node_name }} - nodEvac </title>
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <style>
+        * {
+          -webkit-border-radius: 0 !important;
+             -moz-border-radius: 0 !important;
+                  border-radius: 0 !important;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="panel panel-default">
+        <div class="panel-heading">
+           <h3>{{ node_name }} <small>( {{ cluster_name }} )</small></h3>
+           <dl class="dl-horizontal">
+                     <dt>Number of VMs:</dt>
+                     <dd>{{ node_info.pinst_cnt }}</dd>
+
+                     <dt>Role:</dt>
+                     <dd>{{ node_info.role }}</dd>
+
+                     <dt>IP:</dt>
+                     <dd>{{ node_info.pip }}</dd>
+
+                     <dt>Tags</dt>
+                     <dd>
+                         {% for tag in  node_info.tags %} 
+                        <span class="label label-info"> {{ tag }} </span> 
+                        {% endfor %}
+                     </dd>
+
+           </dl>
+        </div>
+        <div class="panel-body" style="padding:0px;">
+            <ul class="list-group" id="progress_listgroup">
+                    {% for instance in node_info.pinst_list %}
+                    <div id="list_{{instance}}_item" class="list-group-item">
+                        <div>
+                            <span class="glyphicon glyphicon-hdd" aria-hidden="true"></span>
+                            <span> {{ instance }} </span>
+                            <div class="instance_migrate_status"></div>
+                            <button type="button" class="btn btn-info btn-xs pull-right" onClick="start_migration_task( '{{instance}}', '{{cluster_name }}');">Migrate</button>
+                        </div>
+                        <div class="progress" style="margin-bottom:0px;">
+                        <div id="list_{{instance}}_progress" class="progress-bar" role="progressbar" style="min-width: 2em; width: 0%;">0%</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+            </ul>
+        </div>
+        <div class="panel-footer">
+            <button type="button" class="btn btn-default btn-lg btn-block">Begin Migrations</button>
+        </div>
+    </div>
+    <script>
+    function start_migration_task(instance_name, cluster_name) {
+        // send ajax POST request to start background job
+        $.ajax({
+            type: 'POST',
+            url: '/migrate',
+            data: { instance_name: instance_name, cluster_name: cluster_name },
+            success: function(data, status, request) {
+                status_url = request.getResponseHeader('Location');
+                console.log(status_url);
+                update_progress(status_url, $('#list_' + instance_name + '_progress'), $('#list_' + instance_name + '_item'));
+            },
+        });
+    }
+    function update_progress(status_url, progressbar_element, status_div) {
+        // send GET request to status URL to get current status of job
+        $.getJSON(status_url, function(data) {
+            percent = parseInt(data['percent']);
+            progressbar_element.css('width', percent + '%');
+            progressbar_element.text(percent + '%');
+            if (data['state'] != 'PENDING' && data['state'] != 'PROGRESS') {
+                if ('result' in data) {
+                    status_div.find("instance_migrate_status").text('Result: ' + data['state']);
+                } else {
+                    status_div.find("instance_migrate_status").text('Result: ' + data['state']);
+                }
+            } else {
+                setTimeout(function() {
+                    update_progress(status_url, progressbar_element, status_div);
+                }, 2000); // rerun in 2 seconds
+            }
+        });
+    };
+    </script>
+
+  </body>
+</html>
