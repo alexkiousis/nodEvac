@@ -20,7 +20,10 @@ GANETI_CLUSTER = {
 def cluster_connection(cluster_name):
     # TODO this returns KeyError if cluster_name doesn't exist in dict
     cluster_info = GANETI_CLUSTER[cluster_name]
-    cluster_conn = GanetiRapiClient(cluster_name, username = cluster_info["username"], password = cluster_info["password"])
+    cluster_conn = GanetiRapiClient(cluster_name,
+            username = cluster_info["username"],
+            password = cluster_info["password"]
+            )
     return cluster_conn
 
 def get_node_info(node, cluster):
@@ -29,6 +32,13 @@ def get_node_info(node, cluster):
     # Expand the role value from a single letter designation to human readable format
     node_info["role"] = ganeti_node_role_desc[node_info['role']]
     return node_info
+
+def get_cluster_info(cluster):
+    cluster_conn = cluster_connection(cluster)
+    cluster_info = cluster_conn.GetInfo(cluster)
+    nodes_list = cluster_conn.GetNodes(bulk=True)
+    cluster_info["nodes"] = nodes_list
+    return cluster_info
 
 def evacuate_node(node):
     """Helper functon to evacuate a node from VMs and offline it."""
@@ -82,5 +92,3 @@ def evacuate_node(node):
 
     print "node role: " + cl._client.GetNodeRole(node)
     print "running vms: " + str(cl._client.GetNode(node)['pinst_cnt'])
-
-

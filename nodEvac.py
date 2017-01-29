@@ -2,8 +2,8 @@
 """
 A Flask webapp that handles Ganeti Instance migrations as Celery Tasks
 """
-from ganeti_utils import cluster_connection, get_node_info
-
+from ganeti_utils import cluster_connection, get_node_info, get_cluster_info, GANETI_CLUSTER
+from htools import hbal
 from flask import Flask, request, render_template, url_for, jsonify
 from celery import Celery
 
@@ -18,7 +18,14 @@ celery.conf.update(app.config)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', ganeti_clusters =  GANETI_CLUSTER.keys())
+
+@app.route('/cluster/<cluster_name>')
+def ganeti_cluster_view(cluster_name):
+    if cluster_name in GANETI_CLUSTER.keys():
+        cluster_info = get_cluster_info(cluster_name)
+        return render_template('cluster.html', cluster_name = cluster_name, 
+                cluster_info = cluster_info)
 
 @app.route('/<cluster_name>/<node_name>')
 def ganeti_node_view(node_name, cluster_name):
@@ -47,9 +54,10 @@ def taskstatus(task_id):
     elif task.state != 'FAILURE':
         response = {
             'state': task.state,
-            'percent': task.info.get('percent', 100),
+            'percent': task.info.get('percent',''),
             'status': task.info.get('status', ''),
             'job_id': task.info.get('job_id', ''),
+            'job_status': task.info.get('job_status', ''),
             'job_details': task.info.get('job_details', ''),
         }
         if 'result' in task.info:
@@ -67,25 +75,30 @@ def taskstatus(task_id):
 @celery.task(bind=True)
 def migrate_instance_task(self, instance_name, cluster_name):
     """Migrate a Ganeti instance"""
+    message = "Connecting to cluster..."
+    self.update_state(state='JSTARTED',
+            meta={'percent': '10', 'status': message })
+
     cluster_conn = cluster_connection(cluster_name)
     migrate_job_id = cluster_conn.MigrateInstance(instance_name, allow_failover=True)
 
     migrate_job_details = cluster_conn.GetJobStatus(migrate_job_id)
     message = "Job Submitted."
+    job_status = "Pending"
     self.update_state(state='JPENDING',
-            meta={'percent': '10', 'job_id': migrate_job_id, 'status': message, 'job_details': migrate_job_details})
-    time.sleep(120)
+            meta={'percent': '20', 'job_id': migrate_job_id, 'job_status': job_status, 'status': message, 'job_details': migrate_job_details})
 
     migrate_job_success = cluster_conn.WaitForJobCompletion(migrate_job_id)
     migrate_job_details = cluster_conn.GetJobStatus(migrate_job_id)
-    # Reimplement WaitForJobCompeltion polling function here, in order to fetch
-    # complete info instead of just status
 
     if migrate_job_success:
         message = "Migration Complete!"
+        job_status = "Success"
     else:
         message = "Migration Failed!"
-    return {'percent': 100, "job_id": migrate_job_id, 'status': message, "job_details": migrate_job_details}
+        job_status = "Failure"
+
+    return {'percent': 100, 'job_id': migrate_job_id, 'job_status': job_status, 'status': message, 'job_details': migrate_job_details}
  
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    app.run(host='::')
