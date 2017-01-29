@@ -1,9 +1,11 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <title>Flask + Celery</title>
     <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
     <style>
         * {
           -webkit-border-radius: 0 !important;
@@ -23,6 +25,17 @@
                         </button>
                 </span>
         </div>
+
+        <ul class="list-group">
+        {% for cluster in ganeti_clusters %}
+                <li class="list-group-item">
+                        <a href="{{ url_for('ganeti_cluster_view', cluster_name=cluster) }}">
+                                <i class="fa fa-sitemap" aria-hidden="true"></i>
+                                {{cluster}}
+                        </a>
+                </li>
+        {% endfor %}
+        </ul>
 
   </body>
 </html>

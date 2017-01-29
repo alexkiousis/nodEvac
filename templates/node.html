@@ -1,14 +1,17 @@
+<!DOCTYPE html>
 <html>
 <head>
     <title>{{ node_name }} - nodEvac </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-    <style>
-        * {
-          -webkit-border-radius: 0 !important;
-             -moz-border-radius: 0 !important;
-                  border-radius: 0 !important;
+    <style> 
+        * { 
+                border-radius: 0 !important;
+        } 
+        .panel-body {
+                padding:0px;
         }
     </style>
 </head>
@@ -16,17 +19,19 @@
 <div class="container">
 
     <div class="panel panel-default">
+
         <div class="panel-heading">
-           <h3>{{ node_name }} <small>( {{ cluster_name }} )</small></h3>
+           <a href="{{ url_for('index') }}">Go back</a>
+           <h3>{{ node_name }}</h3>
            <dl class="dl-horizontal">
+                     <dt>Cluster Name:</dt>
+                     <dd>{{ cluster_name }}</dd>
+
                      <dt>Number of VMs:</dt>
                      <dd>{{ node_info.pinst_cnt }}</dd>
 
                      <dt>Role:</dt>
                      <dd>{{ node_info.role }}</dd>
-
-                     <dt>IP:</dt>
-                     <dd>{{ node_info.pip }}</dd>
 
                      <dt>Tags</dt>
                      <dd>
@@ -34,63 +39,100 @@
                         <span class="label label-info"> {{ tag }} </span> 
                         {% endfor %}
                      </dd>
-
            </dl>
-        </div>
-        <div class="panel-body" style="padding:0px;">
+
+            <button type="button" class="btn btn-default btn-lg btn-block" onClick="migrate_node();">Begin Migrations!</button>
+            <div class="progress" style="margin-bottom:0px;">
+                <div id="global_progress" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+                    0%
+                </div>
+            </div>
+
+        </div> <!-- panel heading -->
+
+        <div class="panel-body">
             <ul class="list-group" id="progress_listgroup">
                     {% for instance in node_info.pinst_list %}
-                    <div id="list_{{instance}}_item" class="list-group-item">
+                    <div id="list_{{instance | replace('.','_') }}_item" class="list-group-item">
                         <div>
                             <span class="glyphicon glyphicon-hdd" aria-hidden="true"></span>
                             <span> {{ instance }} </span>
-                            <div class="instance_migrate_status"></div>
-                            <button type="button" class="btn btn-info btn-xs pull-right" onClick="start_migration_task( '{{instance}}', '{{cluster_name }}');">Migrate</button>
+                            <span id="instance_migrate_status"></span>
+                            <span id="instance_migrate_detail" class="pull-right"></span>
                         </div>
                         <div class="progress" style="margin-bottom:0px;">
-                        <div id="list_{{instance}}_progress" class="progress-bar" role="progressbar" style="min-width: 2em; width: 0%;">0%</div>
+                        <div id="list_{{instance | replace('.','_') }}_progress" class="progress-bar" role="progressbar" style="min-width: 2em; width: 0%;">0%</div>
+                            <button type="button" class="btn btn-info btn-xs pull-right" onClick="start_migration_task( '{{instance}}', '{{cluster_name }}');">Migrate</button>
                         </div>
                     </div>
                     {% endfor %}
             </ul>
-        </div>
-        <div class="panel-footer">
-            <button type="button" class="btn btn-default btn-lg btn-block">Begin Migrations</button>
-        </div>
-    </div>
+        </div> <!-- panel-body -->
+
+    </div> <!-- panel -->
+
     <script>
-    function start_migration_task(instance_name, cluster_name) {
-        // send ajax POST request to start background job
-        $.ajax({
-            type: 'POST',
-            url: '/migrate',
-            data: { instance_name: instance_name, cluster_name: cluster_name },
-            success: function(data, status, request) {
-                status_url = request.getResponseHeader('Location');
-                console.log(status_url);
-                update_progress(status_url, $('#list_' + instance_name + '_progress'), $('#list_' + instance_name + '_item'));
-            },
-        });
-    }
-    function update_progress(status_url, progressbar_element, status_div) {
-        // send GET request to status URL to get current status of job
-        $.getJSON(status_url, function(data) {
-            percent = parseInt(data['percent']);
-            progressbar_element.css('width', percent + '%');
-            progressbar_element.text(percent + '%');
-            if (data['state'] != 'PENDING' && data['state'] != 'PROGRESS') {
-                if ('result' in data) {
-                    status_div.find("instance_migrate_status").text('Result: ' + data['state']);
-                } else {
-                    status_div.find("instance_migrate_status").text('Result: ' + data['state']);
-                }
-            } else {
-                setTimeout(function() {
-                    update_progress(status_url, progressbar_element, status_div);
-                }, 2000); // rerun in 2 seconds
+            var instance_array = [
+                    {% for instance in node_info.pinst_list %} "{{instance}}", {% endfor %}
+            ];
+            function migrate_node(){
+                $.each(instance_array, function( inst_num, instance_name ) {
+                    start_migration_task(instance_name, "{{cluster_name }}" ).then(
+                        //current_percent = inst_num / instance_array.length * 100 + '%';
+                        //console.log(current_percent + " " + instance_name + " " + inst_num)
+                        //$("#global_progress").css('width', inst_num * 10 );
+                        //$("#global_progress").text( inst_num );
+                    )
+                });
             }
-        });
-    };
+            function start_migration_task(instance_name, cluster_name) {
+                // send ajax POST request to start background job
+                return $.ajax({
+                    type: 'POST',
+                    url: '/migrate',
+                    data: { instance_name: instance_name, cluster_name: cluster_name },
+                    success: function(data, status, request) {
+                        status_url = request.getResponseHeader('Location');
+                        console.log(status_url);
+                        update_progress(status_url, $('#list_' + instance_name.replace(/\./g,'_') + '_progress'), $('#list_' + instance_name.replace(/\./g,'_') + '_item'));
+                    },
+                });
+            }
+            function update_progress(status_url, progressbar_element, status_div) {
+                // send GET request to status URL to get current status of job
+                $.getJSON(status_url, function(data) {
+
+                    // Task is running
+                    percent = parseInt(data['percent']);
+                    progressbar_element.css('width', percent + '%');
+                    progressbar_element.text(percent + '%');
+                    // Disable migrate button
+                    status_div.find(".btn-xs").text("In progress");
+                    status_div.find(".btn-xs").attr("disabled", "disabled");
+
+                    // Update instance line with job status
+                    if (data['state'] != 'PENDING' && data['state'] != 'JSTARTED') {
+                            // Aside from PENDING means ganeti job has been submitted and has a state
+                            status_div.find("#instance_migrate_status").text("[" + data["job_details"]["opstatus"][0] + "]")
+                    }
+                    //debugger;
+                    if (data['state'] == 'SUCCESS'){
+                        status_div.find("#instance_migrate_detail").text('Result: ' + data['status']);
+                        if (data['job_status'] == 'Success'){
+                            progressbar_element.addClass("progress-bar-success")
+                            status_div.parent().append(status_div);
+                        } else {
+                            progressbar_element.addClass("progress-bar-danger")
+                        }
+                    } else if (data['state'] == 'FAILURE') {
+                        status_div.find("#instance_migrate_status").text('Result: ' + data['status']);
+                    } else {
+                        setTimeout(function() {
+                            update_progress(status_url, progressbar_element, status_div);
+                        }, 2000); // rerun in 2 seconds
+                    }
+                });
+            };
     </script>
 
   </body>
