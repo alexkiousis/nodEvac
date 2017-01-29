@@ -3,7 +3,6 @@
 A Flask webapp that handles Ganeti Instance migrations as Celery Tasks
 """
 from ganeti_utils import cluster_connection, get_node_info, get_cluster_info, GANETI_CLUSTER
-from htools import hbal
 from flask import Flask, request, render_template, url_for, jsonify
 from celery import Celery
 
