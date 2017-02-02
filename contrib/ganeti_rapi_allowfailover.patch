@@ -1,28 +1,28 @@
---- ganeti_client.py	2017-01-22 17:20:38.624248346 +0200
-+++ client.py	2017-01-28 20:38:56.377458458 +0200
+--- client.py	2017-02-02 17:09:21.681827196 +0200
++++ ganeti_client.py	2017-01-22 17:20:38.624248346 +0200
 @@ -1339,7 +1339,7 @@
                                (GANETI_RAPI_VERSION, instance)), query, body)
  
    def MigrateInstance(self, instance, mode=None, cleanup=None,
--                      target_node=None, reason=None, allow_failover=None):
-+                      target_node=None, reason=None):
+-                      target_node=None, reason=None):
++                      target_node=None, reason=None, allow_failover=None):
      """Migrates an instance.
  
      @type instance: string
-@@ -1352,8 +1352,6 @@
+@@ -1352,6 +1352,8 @@
      @param target_node: Target Node for externally mirrored instances
      @type reason: string
      @param reason: the reason for executing this operation
--    @type allow_failover: bool
--    @param allow_failover: Whether to use failover if migration not possible
++    @type allow_failover: bool
++    @param allow_failover: Whether to use failover if migration not possible
      @rtype: string
      @return: job id
  
-@@ -1362,7 +1360,6 @@
+@@ -1360,6 +1362,7 @@
      _SetItemIf(body, mode is not None, "mode", mode)
      _SetItemIf(body, cleanup is not None, "cleanup", cleanup)
      _SetItemIf(body, target_node is not None, "target_node", target_node)
--    _SetItemIf(body, allow_failover is not None, "allow_failover", allow_failover)
++    _SetItemIf(body, allow_failover is not None, "allow_failover", allow_failover)
  
      query = []
      _AppendReason(query, reason)
