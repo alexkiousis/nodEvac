@@ -2,11 +2,11 @@
 """
 A Flask webapp that handles Ganeti Instance migrations as Celery Tasks
 """
-from ganeti_utils import cluster_connection, get_node_info, get_cluster_info, GANETI_CLUSTER
-from flask import Flask, request, render_template, url_for, jsonify
-from celery import Celery
+from ganeti_utils import cluster_connection, get_node_info,\
+        get_cluster_info, GANETI_CLUSTER
+from tasks import migrate_instance_task
 
-import time
+from flask import Flask, request, render_template, url_for, jsonify
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'dlasjdlasjda'
@@ -17,31 +17,45 @@ celery.conf.update(app.config)
 
 @app.route('/')
 def index():
-    return render_template('index.html', ganeti_clusters =  GANETI_CLUSTER.keys())
+    """ list all available clusters and search bar"""
+    return render_template('index.html', ganeti_clusters=GANETI_CLUSTER.keys())
 
 @app.route('/cluster/<cluster_name>')
 def ganeti_cluster_view(cluster_name):
     if cluster_name in GANETI_CLUSTER.keys():
         cluster_info = get_cluster_info(cluster_name)
-        return render_template('cluster.html', cluster_name = cluster_name, 
-                cluster_info = cluster_info)
+        return render_template('cluster.html', cluster_nam=cluster_name,
+                               cluster_info=cluster_info)
 
 @app.route('/<cluster_name>/<node_name>')
 def ganeti_node_view(node_name, cluster_name):
+    """Ganeti Node view. Triggers evacuation tasks."""
     node_info = get_node_info(node_name, cluster_name)
-    return render_template('node.html', node_name = node_name, cluster_name = cluster_name, node_info = node_info)
+    return render_template('node.html',
+                           node_name=node_name,
+                           cluster_name=cluster_name,
+                           node_info=node_info)
 
 @app.route('/migrate', methods=['POST'])
 def migrate_instance():
+    """
+    Triggers a task for instance migration.
+    Return a JSON view with the URL get the task status.
+    """
     # TODO: handle Celery not being available
     task = migrate_instance_task.apply_async(kwargs={
-        'instance_name': request.form['instance_name'], 
+        'instance_name': request.form['instance_name'],
         'cluster_name': request.form['cluster_name']
-    } )
-    return jsonify({}), 202, {'Location': url_for('taskstatus', task_id=task.id)}
+    })
+    return jsonify({}), 202, {
+        'Location': url_for('taskstatus', task_id=task.id)}
 
 @app.route('/status/<task_id>')
 def taskstatus(task_id):
+    """
+    Parses the status for th Celery job requested and returns a JSON view with
+    relevant info.
+    """
     task = migrate_instance_task.AsyncResult(task_id)
     if task.state == 'PENDING':
         response = {
@@ -53,7 +67,7 @@ def taskstatus(task_id):
     elif task.state != 'FAILURE':
         response = {
             'state': task.state,
-            'percent': task.info.get('percent',''),
+            'percent': task.info.get('percent', ''),
             'status': task.info.get('status', ''),
             'job_id': task.info.get('job_id', ''),
             'job_status': task.info.get('job_status', ''),
