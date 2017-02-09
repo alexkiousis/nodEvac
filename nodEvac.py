@@ -2,32 +2,27 @@
 """
 A Flask webapp that handles Ganeti Instance migrations as Celery Tasks
 """
-from ganeti_utils import cluster_connection, get_node_info,\
-        get_cluster_info, GANETI_CLUSTER
-from tasks import migrate_instance_task
-
 from flask import Flask, request, render_template, url_for, jsonify
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'dlasjdlasjda'
-app.config['CELERY_BROKEN_URL'] = 'redis://localhost:6379/0'
-app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-celery = Celery(app.name, broker=app.config['CELERY_BROKEN_URL'])
-celery.conf.update(app.config)
+from ganeti_utils import get_node_info, get_cluster_info,\
+        GANETI_CLUSTER
+from tasks import celery_app, migrate_instance_task
 
-@app.route('/')
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
 def index():
     """ list all available clusters and search bar"""
     return render_template('index.html', ganeti_clusters=GANETI_CLUSTER.keys())
 
-@app.route('/cluster/<cluster_name>')
+@flask_app.route('/cluster/<cluster_name>')
 def ganeti_cluster_view(cluster_name):
     if cluster_name in GANETI_CLUSTER.keys():
         cluster_info = get_cluster_info(cluster_name)
         return render_template('cluster.html', cluster_nam=cluster_name,
                                cluster_info=cluster_info)
 
-@app.route('/<cluster_name>/<node_name>')
+@flask_app.route('/<cluster_name>/<node_name>')
 def ganeti_node_view(node_name, cluster_name):
     """Ganeti Node view. Triggers evacuation tasks."""
     node_info = get_node_info(node_name, cluster_name)
@@ -36,13 +31,12 @@ def ganeti_node_view(node_name, cluster_name):
                            cluster_name=cluster_name,
                            node_info=node_info)
 
-@app.route('/migrate', methods=['POST'])
+@flask_app.route('/migrate', methods=['POST'])
 def migrate_instance():
     """
     Triggers a task for instance migration.
     Return a JSON view with the URL get the task status.
     """
-    # TODO: handle Celery not being available
     task = migrate_instance_task.apply_async(kwargs={
         'instance_name': request.form['instance_name'],
         'cluster_name': request.form['cluster_name']
@@ -50,7 +44,7 @@ def migrate_instance():
     return jsonify({}), 202, {
         'Location': url_for('taskstatus', task_id=task.id)}
 
-@app.route('/status/<task_id>')
+@flask_app.route('/status/<task_id>')
 def taskstatus(task_id):
     """
     Parses the status for th Celery job requested and returns a JSON view with
@@ -85,33 +79,5 @@ def taskstatus(task_id):
         }
     return jsonify(response)
 
-@celery.task(bind=True)
-def migrate_instance_task(self, instance_name, cluster_name):
-    """Migrate a Ganeti instance"""
-    message = "Connecting to cluster..."
-    self.update_state(state='JSTARTED',
-            meta={'percent': '10', 'status': message })
-
-    cluster_conn = cluster_connection(cluster_name)
-    migrate_job_id = cluster_conn.MigrateInstance(instance_name, allow_failover=True)
-
-    migrate_job_details = cluster_conn.GetJobStatus(migrate_job_id)
-    message = "Job Submitted."
-    job_status = "Pending"
-    self.update_state(state='JPENDING',
-            meta={'percent': '20', 'job_id': migrate_job_id, 'job_status': job_status, 'status': message, 'job_details': migrate_job_details})
-
-    migrate_job_success = cluster_conn.WaitForJobCompletion(migrate_job_id)
-    migrate_job_details = cluster_conn.GetJobStatus(migrate_job_id)
-
-    if migrate_job_success:
-        message = "Migration Complete!"
-        job_status = "Success"
-    else:
-        message = "Migration Failed!"
-        job_status = "Failure"
-
-    return {'percent': 100, 'job_id': migrate_job_id, 'job_status': job_status, 'status': message, 'job_details': migrate_job_details}
- 
 if __name__ == '__main__':
-    app.run(host='::')
+    flask_app.run(host='::')
