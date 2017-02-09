@@ -10,11 +10,11 @@ from contrib.ganeti_client import GanetiRapiClient
 from cluster_config import GANETI_CLUSTER
 
 GNTNODE_ROLE_DESC = {
-'R': "Regular",
-'C': 'Master Candidate',
-'D': 'Drained',
-'O': 'Offline',
-'M': 'Master',
+    'R': "Regular",
+    'C': 'Master Candidate',
+    'D': 'Drained',
+    'O': 'Offline',
+    'M': 'Master',
 }
 
 
