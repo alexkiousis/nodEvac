@@ -3,10 +3,12 @@
 A Flask webapp that handles Ganeti Instance migrations as Celery Tasks
 """
 from flask import Flask, request, render_template, url_for, jsonify
+import redis
 
 from ganeti_utils import get_node_info, get_cluster_info,\
         GANETI_CLUSTER
-from tasks import celery_app, migrate_instance_task
+from tasks import celery_app, migrate_instance_task, evacuate_node_task,\
+        shutdown_node_task, startup_node_task
 
 flask_app = Flask(__name__)
 
@@ -19,8 +21,7 @@ def index():
 def ganeti_cluster_view(cluster_name):
     if cluster_name in GANETI_CLUSTER.keys():
         cluster_info = get_cluster_info(cluster_name)
-        return render_template('cluster.html', cluster_nam=cluster_name,
-                               cluster_info=cluster_info)
+        return render_template('cluster.html', cluster_info=cluster_info)
 
 @flask_app.route('/<cluster_name>/<node_name>')
 def ganeti_node_view(node_name, cluster_name):
@@ -30,6 +31,7 @@ def ganeti_node_view(node_name, cluster_name):
                            node_name=node_name,
                            cluster_name=cluster_name,
                            node_info=node_info)
+
 
 @flask_app.route('/migrate', methods=['POST'])
 def migrate_instance():
@@ -43,6 +45,56 @@ def migrate_instance():
     })
     return jsonify({}), 202, {
         'Location': url_for('taskstatus', task_id=task.id)}
+
+@flask_app.route('/evacuate_node', methods=['POST'])
+def evacuate_node():
+    """
+    Triggers a task for node evacuation.
+    Return a JSON view with the URL to get the task status.
+    """
+    #view_key = 'evacuate_node_' + request.form["cluster_name"] + "_"\
+    #        + request.form["node_name"]
+    #redis_conn = redis.StrictRedis()
+    #task_id = redis_conn.get(view_key)
+    # if empty there is no running task, so trigger one
+    #if task_id == '' or task_id is None:
+    task = evacuate_node_task.apply_async(kwargs={
+        'node_name': request.form['node_name'],
+        'cluster_name': request.form['cluster_name']
+    })
+    #redis_conn.set(view_key, task.id)
+    task_id = task.id
+    # else return the running id
+    return jsonify({}), 202, {
+        'Location': url_for('evacjob_taskstatus', task_id=task_id)}
+
+@flask_app.route('/shutdown_node', methods=['POST'])
+def shutdown_node():
+    """
+    Triggers a task to shutdown the specified hardware node.
+    Return a JSON view with the URL get the task status.
+    """
+    task = shutdown_node_task.apply_async(kwargs={
+        'node_name': request.form['node_name'],
+        'cluster_name': request.form['cluster_name']
+    })
+    return jsonify({}), 202, {
+        'Location': url_for('shutdownjob_taskstatus', task_id=task.id)}
+
+@flask_app.route('/startup_node', methods=['POST'])
+def startup_node():
+    """
+    Triggers a task to startup the specified hardware node.
+    Return a JSON view with the URL to get the task status.
+    """
+    task = startup_node_task.apply_async(kwargs={
+        'node_name': request.form['node_name'],
+        'cluster_name': request.form['cluster_name']
+    })
+    return jsonify({}), 202, {
+        'Location': url_for('startup_taskstatus', task_id=task.id)}
+
+
 
 @flask_app.route('/status/<task_id>')
 def taskstatus(task_id):
@@ -78,6 +130,37 @@ def taskstatus(task_id):
             'status': str(task.info),  # this is the exception raised
         }
     return jsonify(response)
+
+@flask_app.route('/evac_status/<task_id>')
+def evacjob_taskstatus(task_id):
+    """
+    Parses the status for a evacuate_node_task Celery job requested and
+    returns a JSON view with relevant info.
+    """
+    task = evacuate_node_task.AsyncResult(task_id)
+    result = {'result': task.state, 'message': task.info}
+    return jsonify(result)
+
+@flask_app.route('/shut_status/<task_id>')
+def shutdownjob_taskstatus(task_id):
+    """
+    Parses the status for a shutdown_node_task Celery job requested and
+    returns a JSON view with relevant info.
+    """
+    task = shutdown_node_task.AsyncResult(task_id)
+    result = {'result': task.state, 'message': task.info}
+    return jsonify(result)
+
+
+@flask_app.route('/start_status/<task_id>')
+def startup_taskstatus(task_id):
+    """
+    Parses the status for a startup_node_task Celery job requested and returns
+    a JSON view with  relevant info.
+    """
+    task = startup_node_task.AsyncResult(task_id)
+    result = {'result': task.state, 'message': task.info}
+    return jsonify(result)
 
 if __name__ == '__main__':
     flask_app.run(host='::')

@@ -163,33 +163,45 @@
                 },
             });
         }
-
-        function evacuate_node_progress(status_url) {
-            $.getJSON(status_url, function(data) {
+function evacuate_node_progress(status_url) {
+        $.getJSON(status_url, function(data) {
                 $(".evacuate_node_button").text("Evacuation in progress");
                 $(".evacuate_node_button").attr("disabled", "disabled");
                 if (data['result'] != 'PENDING' && data['result'] != 'STARTED') {
-                    $("#node_role_text").text(data['message']['status']['role'])
-                    $("#node_inst_cnt").text(data['message']['status']['pinst_cnt'] - data['message']['status']['inst_done'])
+                        $("#node_role_text").text(data['message']['status']['role'])
+                                $("#node_inst_cnt").text(data['message']['status']['pinst_cnt'] - data['message']['status']['inst_done'])
                 }
-		if (data['result'] == 'E_MIGRATING'){
-			//debugger;
-			//for ( instance in data['message']['progress'] ) {
-			//}
-		}
+                if (data['result'] == 'E_MIGRATING'){
 
-		if (data['result'] == 'SUCCESS') {
-			alert("done success")
-		} else if (data['result'] == 'FAILURE') {
-			alert("done error")
-		} else {
-		    setTimeout(function() {
-			    evacuate_node_progress(status_url);
-		    }, 2000);
-		}
+                        var results = data.message.progress;
+                        for ( result in results ){
+                                if (!results[result].task_status){
+                                        continue;
+                                }
+                                console.log( result + ':' + results[result].task_status.percent);
+                                var progressBar = $("#list_" + result + "_item").find('[id="list_' + result + '_progress"]');
+                                var progress = results[result].task_status.percent.toString() + '%';
+                                progressBar.css('width', progress);
+                                progressBar.html(progress);
+                        }
 
-	    });
-	}
+                        //debugger;
+                        //for ( instance in data['message']['progress'] ) {
+                        //}
+                }
+
+                if (data['result'] == 'SUCCESS') {
+                        alert("done success")
+                } else if (data['result'] == 'FAILURE') {
+                        alert("done error")
+                } else {
+                        setTimeout(function() {
+                                evacuate_node_progress(status_url);
+                        }, 2000);
+                }
+
+        });
+}
     </script>
 
     <script>
