@@ -1,57 +1,50 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ node_name }} - nodEvac </title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-    <style> 
-        * { 
-                border-radius: 0 !important;
-        } 
-        .panel-body {
-                padding:0px;
-        }
-    </style>
-</head>
-<body>
+{% extends 'layout.html' %}
+
+{% block title %}
+{{ node_name }}
+{% endblock %}
+
+{% block body %}
 <div class="container">
 
     <div class="panel panel-default">
-
         <div class="panel-heading">
-           <a href="{{ url_for('index') }}">Go back</a>
-           <h3>{{ node_name }}</h3>
-           <dl class="dl-horizontal">
-                     <dt>Cluster Name:</dt>
-                     <dd>{{ cluster_name }}</dd>
+	<ol class="breadcrumb">
+	    <li>
+                <span class="glyphicon glyphicon-home" aria-hidden="true"></span>
+                <a href="{{ url_for('index') }}"> Home </a>
+	    </li>
+	    <li>
+		<span class="fa fa-sitemap" aria-hidden="true"></span>
+		<a href="{{ url_for('ganeti_cluster_view', cluster_name=cluster_name) }}"> {{ cluster_name }} </a>
+	    </li>
+	    <li class="active">
+		<span class="glyphicon glyphicon-tasks" aria-hidden="true"></span> {{ node_name }}
+	    </li>
+	</ol>
+        <dl class="dl-horizontal">
+            <dt>Cluster Name:</dt> <dd>{{ cluster_name }}</dd>
+            <dt>Number of VMs:</dt> <dd id="node_inst_cnt">{{ node_info.pinst_cnt }}</dd>
+            <dt>Role:</dt> <dd id="node_role_text">{{ node_info.role }}</dd>
+            <dt>Tags</dt>
+            <dd> {% for tag in  node_info.tags %} 
+                <span class="label label-info"> {{ tag }} </span> 
+            {% endfor %} </dd>
+        </dl>
 
-                     <dt>Number of VMs:</dt>
-                     <dd>{{ node_info.pinst_cnt }}</dd>
-
-                     <dt>Role:</dt>
-                     <dd>{{ node_info.role }}</dd>
-
-                     <dt>Tags</dt>
-                     <dd>
-                         {% for tag in  node_info.tags %} 
-                        <span class="label label-info"> {{ tag }} </span> 
-                        {% endfor %}
-                     </dd>
-           </dl>
-
-            <button type="button" class="btn btn-default btn-lg btn-block" onClick="migrate_node();">Begin Migrations!</button>
-            <div class="progress" style="margin-bottom:0px;">
-                <div id="global_progress" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
-                    0%
-                </div>
-            </div>
-
+        <button id="evacuate_node_button" type="button" class="btn btn-default btn-sm btn-block" onClick="evacuate_node();">Begin Migrations!</button>
         </div> <!-- panel heading -->
 
         <div class="panel-body">
             <ul class="list-group" id="progress_listgroup">
+		    {% if node_info.pinst_list is not defined %}
+		    <div class='list-group-item'>
+			    <p class="text-center">
+			    <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+			    The node is empty.
+			    </p>
+		    </div>
+		    {% endif %}
                     {% for instance in node_info.pinst_list %}
                     <div id="list_{{instance | replace('.','_') }}_item" class="list-group-item">
                         <div>
@@ -69,71 +62,188 @@
             </ul>
         </div> <!-- panel-body -->
 
+	<div class="panel-footer clearfix">
+		<div>
+		<div id="node_power_status">
+			Host is
+		</div>
+
+		<div class="btn-group pull-right" role="group">
+			<button type="button" class="btn btn-info" onClick="start_nodestatus_task();"><span class="glyphicon glyphicon-repeat" aria-hidden="true"></span>Check Status</button>
+			<button type="button" class="btn btn-success" onClick="start_startupnode_task();"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>Startup Node</button>
+			<button type="button" class="btn btn-danger"  onClick="start_shutdownnode_task();"><span class="glyphicon glyphicon-off" aria-hidden="true"></span>Shutdown Node</button>
+		</div> <!-- btn-group -->
+		</div>
+		<!--		<div class="clearfix"></div>-->
+
+	</div> <!-- panel-footer -->
+
     </div> <!-- panel -->
 
+<script>
+    function start_shutdownnode_task() {
+        return $.ajax({
+            type: 'POST',
+            url: '/shutdown_node',
+	    data: { node_name: "{{ node_name }}", cluster_name: "{{ cluster_name }}" },
+            success: function(data, status, request) {
+                status_url = request.getResponseHeader('Location');
+                console.log(status_url);
+		wait_for_shutdown(status_url)
+            },
+        });
+    };
+    function wait_for_shutdown(status_url) {
+        // send GET request to status URL to get current status of job
+        $.getJSON(status_url, function(data) {
+            if (data['result'] == 'SUCCESS'){
+                //alert(data['message']);
+                $('#node_power_status').html(data['message'])
+            } else if (data['result'] == 'FAILURE') {
+                //alert(data['message']);
+                $('#node_power_status').html(data['message'])
+            } else {
+                setTimeout(function() {
+		    wait_for_shutdown(status_url)
+                }, 8000); // rerun in 2 seconds
+            }
+	});
+    };
+</script>
+
+<script>
+    function start_startupnode_task() {
+        return $.ajax({
+            type: 'POST',
+            url: '/startup_node',
+	    data: { node_name: "{{ node_name }}", cluster_name: "{{ cluster_name }}" },
+            success: function(data, status, request) {
+                status_url = request.getResponseHeader('Location');
+                console.log(status_url);
+		wait_for_startup(status_url)
+            },
+        });
+    };
+    function wait_for_startup(status_url) {
+        // send GET request to status URL to get current status of job
+        $.getJSON(status_url, function(data) {
+            if (data['result'] == 'SUCCESS'){
+                //alert(data['message']);
+                $('#node_power_status').html(data['message'])
+            } else if (data['result'] == 'FAILURE') {
+                //alert(data['message']);
+                $('#node_power_status').html(data['message'])
+            } else {
+                setTimeout(function() {
+		    wait_for_startup(status_url)
+                }, 4000); // rerun in 2 seconds
+            }
+	});
+    };
+</script>
+
     <script>
-            var instance_array = [
-                    {% for instance in node_info.pinst_list %} "{{instance}}", {% endfor %}
-            ];
-            function migrate_node(){
-                $.each(instance_array, function( inst_num, instance_name ) {
-                    start_migration_task(instance_name, "{{cluster_name }}" ).then(
-                        //current_percent = inst_num / instance_array.length * 100 + '%';
-                        //console.log(current_percent + " " + instance_name + " " + inst_num)
-                        //$("#global_progress").css('width', inst_num * 10 );
-                        //$("#global_progress").text( inst_num );
-                    )
-                });
-            }
-            function start_migration_task(instance_name, cluster_name) {
-                // send ajax POST request to start background job
-                return $.ajax({
-                    type: 'POST',
-                    url: '/migrate',
-                    data: { instance_name: instance_name, cluster_name: cluster_name },
-                    success: function(data, status, request) {
-                        status_url = request.getResponseHeader('Location');
-                        console.log(status_url);
-                        update_progress(status_url, $('#list_' + instance_name.replace(/\./g,'_') + '_progress'), $('#list_' + instance_name.replace(/\./g,'_') + '_item'));
-                    },
-                });
-            }
-            function update_progress(status_url, progressbar_element, status_div) {
-                // send GET request to status URL to get current status of job
-                $.getJSON(status_url, function(data) {
+        var instance_array = [
+                {% for instance in node_info.pinst_list %} "{{instance}}", {% endfor %}
+        ];
+	//$( document ).ready(function() {
+	    //if ( instance_array.length !== 0 ) {
+                // disable the shutdown node button
+	    //};
+	//});
+        function evacuate_node(){
+            return $.ajax({
+                type: 'POST',
+		url: '{{ url_for("evacuate_node") }}',
+		data: { node_name: "{{ node_name }}", cluster_name: "{{ cluster_name }}" },
+                success: function(data, status, request) {
+                    status_url = request.getResponseHeader('Location');
+                    console.log(status_url);
+                    evacuate_node_progress(status_url);
+                },
+            });
+        }
 
-                    // Task is running
-                    percent = parseInt(data['percent']);
-                    progressbar_element.css('width', percent + '%');
-                    progressbar_element.text(percent + '%');
-                    // Disable migrate button
-                    status_div.find(".btn-xs").text("In progress");
-                    status_div.find(".btn-xs").attr("disabled", "disabled");
+        function evacuate_node_progress(status_url) {
+            $.getJSON(status_url, function(data) {
+                $(".evacuate_node_button").text("Evacuation in progress");
+                $(".evacuate_node_button").attr("disabled", "disabled");
+                if (data['result'] != 'PENDING' && data['result'] != 'STARTED') {
+                    $("#node_role_text").text(data['message']['status']['role'])
+                    $("#node_inst_cnt").text(data['message']['status']['pinst_cnt'] - data['message']['status']['inst_done'])
+                }
+		if (data['result'] == 'E_MIGRATING'){
+			//debugger;
+			//for ( instance in data['message']['progress'] ) {
+			//}
+		}
 
-                    // Update instance line with job status
-                    if (data['state'] != 'PENDING' && data['state'] != 'JSTARTED') {
-                            // Aside from PENDING means ganeti job has been submitted and has a state
-                            status_div.find("#instance_migrate_status").text("[" + data["job_details"]["opstatus"][0] + "]")
-                    }
-                    //debugger;
-                    if (data['state'] == 'SUCCESS'){
-                        status_div.find("#instance_migrate_detail").text('Result: ' + data['status']);
-                        if (data['job_status'] == 'Success'){
-                            progressbar_element.addClass("progress-bar-success")
-                            status_div.parent().append(status_div);
-                        } else {
-                            progressbar_element.addClass("progress-bar-danger")
-                        }
-                    } else if (data['state'] == 'FAILURE') {
-                        status_div.find("#instance_migrate_status").text('Result: ' + data['status']);
-                    } else {
-                        setTimeout(function() {
-                            update_progress(status_url, progressbar_element, status_div);
-                        }, 2000); // rerun in 2 seconds
-                    }
-                });
-            };
+		if (data['result'] == 'SUCCESS') {
+			alert("done success")
+		} else if (data['result'] == 'FAILURE') {
+			alert("done error")
+		} else {
+		    setTimeout(function() {
+			    evacuate_node_progress(status_url);
+		    }, 2000);
+		}
+
+	    });
+	}
     </script>
 
-  </body>
-</html>
+    <script>
+        function start_migration_task(instance_name, cluster_name) {
+           // send ajax POST request to start background job
+           return $.ajax({
+              type: 'POST',
+              url: '/migrate',
+              data: { instance_name: instance_name, cluster_name: cluster_name },
+              success: function(data, status, request) {
+                status_url = request.getResponseHeader('Location');
+                console.log(status_url);
+                update_progress(status_url, $('#list_' + instance_name.replace(/\./g,'_') + '_progress'), $('#list_' + instance_name.replace(/\./g,'_') + '_item'));
+              },
+           });
+        }
+        function update_progress(status_url, progressbar_element, status_div) {
+            // send GET request to status URL to get current status of job
+            $.getJSON(status_url, function(data) {
+
+                // Task is running
+                percent = parseInt(data['percent']);
+                progressbar_element.css('width', percent + '%');
+                progressbar_element.text(percent + '%');
+                // Disable migrate button
+                status_div.find(".btn-xs").text("In progress");
+                status_div.find(".btn-xs").attr("disabled", "disabled");
+
+                // Update instance line with job status
+                if (data['state'] != 'PENDING' && data['state'] != 'JSTARTED') {
+                        // Aside from PENDING means ganeti job has been submitted and has a state
+                        status_div.find("#instance_migrate_status").text("[" + data["job_details"]["opstatus"][0] + "]")
+                }
+                //debugger;
+                if (data['state'] == 'SUCCESS'){
+                    status_div.find("#instance_migrate_detail").text('Result: ' + data['status']);
+                    if (data['job_status'] == 'Success'){
+                        progressbar_element.addClass("progress-bar-success")
+                        status_div.parent().append(status_div);
+                    } else {
+                        progressbar_element.addClass("progress-bar-danger")
+                    }
+                } else if (data['state'] == 'FAILURE') {
+                    status_div.find("#instance_migrate_status").text('Result: ' + data['status']);
+                } else {
+                    setTimeout(function() {
+                        update_progress(status_url, progressbar_element, status_div);
+                    }, 2000); // rerun in 2 seconds
+                }
+            });
+        };
+
+
+    </script>
+
+</div> <!-- container -->
+{% endblock %}
