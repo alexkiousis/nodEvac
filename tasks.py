@@ -23,6 +23,7 @@ def evacuate_node_task(self, node_name, cluster_name):
     """ Handles the tasks needed to evacuate a Ganeti node."""
     print("Begin node evacuation task for node " + node_name)
     evac_status = {}
+    cluster_conn = cluster_connection(cluster_name)
     node_info = get_node_info(node_name, cluster_name)
     evac_status["role"] = node_info["role"]
     evac_status["pinst_cnt"] = node_info["pinst_cnt"]
@@ -33,7 +34,6 @@ def evacuate_node_task(self, node_name, cluster_name):
 
     if evac_status["role"] != "Drained":
         print('Current role is :' + evac_status["role"] + ". Draining...")
-        cluster_conn = cluster_connection(cluster_name)
         node_drain_job = cluster_conn.SetNodeRole(node_name, "drained")
         node_drain_job_status = cluster_conn.WaitForJobCompletion(node_drain_job)
         if node_drain_job_status:
