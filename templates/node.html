@@ -8,32 +8,49 @@
 <div class="container">
 
     <div class="panel panel-default">
-        <div class="panel-heading">
-	<ol class="breadcrumb">
-	    <li>
-                <span class="glyphicon glyphicon-home" aria-hidden="true"></span>
-                <a href="{{ url_for('index') }}"> Home </a>
-	    </li>
-	    <li>
-		<span class="fa fa-sitemap" aria-hidden="true"></span>
-		<a href="{{ url_for('ganeti_cluster_view', cluster_name=cluster_name) }}"> {{ cluster_name }} </a>
-	    </li>
-	    <li class="active">
-		<span class="glyphicon glyphicon-tasks" aria-hidden="true"></span> {{ node_name }}
-	    </li>
-	</ol>
-        <dl class="dl-horizontal">
-            <dt>Cluster Name:</dt> <dd>{{ cluster_name }}</dd>
-            <dt>Number of VMs:</dt> <dd id="node_inst_cnt">{{ node_info.pinst_cnt }}</dd>
-            <dt>Role:</dt> <dd id="node_role_text">{{ node_info.role }}</dd>
-            <dt>Tags</dt>
-            <dd> {% for tag in  node_info.tags %} 
-                <span class="label label-info"> {{ tag }} </span> 
-            {% endfor %} </dd>
-        </dl>
 
-        <button id="evacuate_node_button" type="button" class="btn btn-default btn-sm btn-block" onClick="evacuate_node();">Begin Migrations!</button>
-        </div> <!-- panel heading -->
+            <div class="panel-heading">
+                    <ol class="breadcrumb">
+                            <li>
+                                    <span class="glyphicon glyphicon-home" aria-hidden="true"></span>
+                                    <a href="{{ url_for('index') }}"> Home </a>
+                            </li>
+                            <li>
+                                    <span class="fa fa-sitemap" aria-hidden="true"></span>
+                                    <a href="{{ url_for('ganeti_cluster_view', cluster_name=cluster_name) }}"> {{ cluster_name }} </a>
+                            </li>
+                            <li class="active">
+                                    <span class="glyphicon glyphicon-tasks" aria-hidden="true"></span> {{ node_name }}
+                            </li>
+                    </ol>
+                    <div class="row">
+                            <div class="col-md-8">
+                                    <dl class="dl-horizontal">
+                                            <dt>Cluster Name:</dt> <dd>{{ cluster_name }}</dd>
+                                            <dt>Number of VMs:</dt> <dd id="node_inst_cnt">{{ node_info.pinst_cnt }}</dd>
+                                            <dt>Role:</dt> <dd id="node_role_text">{{ node_info.role }}</dd>
+                                            <dt>Tags</dt>
+                                            <dd> {% for tag in  node_info.tags %} 
+                                            <span class="label label-info"> {{ tag }} </span> 
+                                            {% endfor %} </dd>
+                                    </dl>
+                            </div> <!-- col-md-8 -->
+                            <div class="col-md-4">
+                                    <div class="status_panel pull-right">
+                                            <div id="node_power_status">
+                                                    Host is
+                                            </div>
+                                            <div class="btn-group-vertical" role="group">
+                                                    <button type="button" class="btn btn-info" onClick="start_nodestatus_task();"><span class="glyphicon glyphicon-repeat" aria-hidden="true"></span>Check Status</button>
+                                                    <button type="button" class="btn btn-success" onClick="start_startupnode_task();"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>Startup Node</button>
+                                                    <button type="button" class="btn btn-danger"  onClick="start_shutdownnode_task();"><span class="glyphicon glyphicon-off" aria-hidden="true"></span>Shutdown Node</button>
+                                            </div> <!-- btn-group -->
+                                    </div> <!-- status_panel -->
+                            </div> <!-- col-md-4 -->
+                    </div> <!-- row -->
+
+                    <button id="evacuate_node_button" type="button" class="btn btn-default btn-sm btn-block" onClick="evacuate_node();">Begin Migrations!</button>
+            </div> <!-- panel heading -->
 
         <div class="panel-body">
             <ul class="list-group" id="progress_listgroup">
@@ -61,23 +78,6 @@
                     {% endfor %}
             </ul>
         </div> <!-- panel-body -->
-
-	<div class="panel-footer clearfix">
-		<div>
-		<div id="node_power_status">
-			Host is
-		</div>
-
-		<div class="btn-group pull-right" role="group">
-			<button type="button" class="btn btn-info" onClick="start_nodestatus_task();"><span class="glyphicon glyphicon-repeat" aria-hidden="true"></span>Check Status</button>
-			<button type="button" class="btn btn-success" onClick="start_startupnode_task();"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>Startup Node</button>
-			<button type="button" class="btn btn-danger"  onClick="start_shutdownnode_task();"><span class="glyphicon glyphicon-off" aria-hidden="true"></span>Shutdown Node</button>
-		</div> <!-- btn-group -->
-		</div>
-		<!--		<div class="clearfix"></div>-->
-
-	</div> <!-- panel-footer -->
-
     </div> <!-- panel -->
 
 <script>
