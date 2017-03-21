@@ -153,7 +153,11 @@ def shutdown_node_task(self, node_name, cluster_name):
                      ipmi_info["password"] + " power soft")
     ipmi_status_regex = "Chassis Power is ([a-z]*)\\n"
 
-    message = "Sending shutdown signal to host " + ipmi_host + "."
+    print("Sending downtime command for host.")
+    # Send downtime command for 2h
+    sched_downtime(node_name, '3600')
+
+    message = "Sending shutdown signal to host " + ipmi_info["host"] + "."
     try:
         subprocess.check_output(ipmi_shut_cmd, shell=True)
         self.update_state(state='SHUT_SENT', meta={'message': message})
