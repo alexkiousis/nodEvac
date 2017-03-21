@@ -59,8 +59,8 @@ def evacuate_node_task(self, node_name, cluster_name):
                          )
         while jobid.state in ["PENDING", "JSTARTED", "JPENDING"]:
             time.sleep(10)
-            task_info = jobid.info
-            migration_progress[instance]["task_status"] = task_info
+            migration_progress[instance]["task_state"] = jobid.state
+            migration_progress[instance]["task_status"] = jobid.info
             self.update_state(state='E_MIGRATING',
                               meta={'status': evac_status,
                                     'progress': migration_progress

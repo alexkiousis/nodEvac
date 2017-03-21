@@ -142,120 +142,127 @@
     };
 </script>
 
-    <script>
-        var instance_array = [
-                {% for instance in node_info.pinst_list %} "{{instance}}", {% endfor %}
-        ];
-	//$( document ).ready(function() {
-	    //if ( instance_array.length !== 0 ) {
-                // disable the shutdown node button
-	    //};
-	//});
-        function evacuate_node(){
-            return $.ajax({
-                type: 'POST',
-		url: '{{ url_for("evacuate_node") }}',
-		data: { node_name: "{{ node_name }}", cluster_name: "{{ cluster_name }}" },
-                success: function(data, status, request) {
-                    status_url = request.getResponseHeader('Location');
-                    console.log(status_url);
-                    evacuate_node_progress(status_url);
-                },
-            });
-        }
-function evacuate_node_progress(status_url) {
-        $.getJSON(status_url, function(data) {
-                $(".evacuate_node_button").text("Evacuation in progress");
-                $(".evacuate_node_button").attr("disabled", "disabled");
-                if (data['result'] != 'PENDING' && data['result'] != 'STARTED') {
-                        $("#node_role_text").text(data['message']['status']['role'])
-                                $("#node_inst_cnt").text(data['message']['status']['pinst_cnt'] - data['message']['status']['inst_done'])
-                }
-                if (data['result'] == 'E_MIGRATING'){
-
-                        var results = data.message.progress;
-                        for ( result in results ){
-                                if (!results[result].task_status){
-                                        continue;
-                                }
-                                console.log( result + ':' + results[result].task_status.percent);
-                                var progressBar = $("#list_" + result + "_item").find('[id="list_' + result + '_progress"]');
-                                var progress = results[result].task_status.percent.toString() + '%';
-                                progressBar.css('width', progress);
-                                progressBar.html(progress);
-                        }
-
-                        //debugger;
-                        //for ( instance in data['message']['progress'] ) {
-                        //}
-                }
-
-                if (data['result'] == 'SUCCESS') {
-                        alert("done success")
-                } else if (data['result'] == 'FAILURE') {
-                        alert("done error")
-                } else {
-                        setTimeout(function() {
-                                evacuate_node_progress(status_url);
-                        }, 2000);
-                }
-
-        });
-}
-    </script>
-
-    <script>
-        function start_migration_task(instance_name, cluster_name) {
-           // send ajax POST request to start background job
-           return $.ajax({
-              type: 'POST',
-              url: '/migrate',
-              data: { instance_name: instance_name, cluster_name: cluster_name },
-              success: function(data, status, request) {
+<script>
+    var instance_array = [
+        {% for instance in node_info.pinst_list %} "{{instance}}", {% endfor %}
+    ];
+    //$( document ).ready(function() {
+    //if ( instance_array.length !== 0 ) {
+    // disable the shutdown node button
+    //};
+    //});
+    function evacuate_node(){
+        return $.ajax({
+            type: 'POST',
+            url: '{{ url_for("evacuate_node") }}',
+            data: { node_name: "{{ node_name }}", cluster_name: "{{ cluster_name }}" },
+            success: function(data, status, request) {
                 status_url = request.getResponseHeader('Location');
                 console.log(status_url);
-                update_progress(status_url, $('#list_' + instance_name.replace(/\./g,'_') + '_progress'), $('#list_' + instance_name.replace(/\./g,'_') + '_item'));
-              },
-           });
-        }
-        function update_progress(status_url, progressbar_element, status_div) {
-            // send GET request to status URL to get current status of job
-            $.getJSON(status_url, function(data) {
-
-                // Task is running
-                percent = parseInt(data['percent']);
-                progressbar_element.css('width', percent + '%');
-                progressbar_element.text(percent + '%');
-                // Disable migrate button
-                status_div.find(".btn-xs").text("In progress");
-                status_div.find(".btn-xs").attr("disabled", "disabled");
-
-                // Update instance line with job status
-                if (data['state'] != 'PENDING' && data['state'] != 'JSTARTED') {
-                        // Aside from PENDING means ganeti job has been submitted and has a state
-                        status_div.find("#instance_migrate_status").text("[" + data["job_details"]["opstatus"][0] + "]")
-                }
-                //debugger;
-                if (data['state'] == 'SUCCESS'){
-                    status_div.find("#instance_migrate_detail").text('Result: ' + data['status']);
-                    if (data['job_status'] == 'Success'){
-                        progressbar_element.addClass("progress-bar-success")
-                        status_div.parent().append(status_div);
-                    } else {
-                        progressbar_element.addClass("progress-bar-danger")
+                evacuate_node_progress(status_url);
+            },
+        });
+    }
+    function evacuate_node_progress(status_url) {
+        $.getJSON(status_url, function(data) {
+            $("#evacuate_node_button").text("Evacuation in progress...");
+            $("#evacuate_node_button").attr("disabled", "disabled");
+            if (data['result'] != 'PENDING' && data['result'] != 'STARTED') {
+                $("#node_role_text").text(data['message']['status']['role'])
+                $("#node_inst_cnt").text(data['message']['status']['pinst_cnt'] - data['message']['status']['inst_done'])
+            }
+            //debugger;
+            if (data['result'] == 'E_MIGRATING'){
+                var results = data.message.progress;
+                for ( result in results ){
+                    if (!results[result].task_status){
+                        continue;
                     }
-                } else if (data['state'] == 'FAILURE') {
-                    status_div.find("#instance_migrate_status").text('Result: ' + data['status']);
-                } else {
-                    setTimeout(function() {
-                        update_progress(status_url, progressbar_element, status_div);
-                    }, 2000); // rerun in 2 seconds
+                    update_progress(results[result], result);
+                    //console.log( result + ':' + results[result].task_status.percent);
+                    //var progressBar = $("#list_" + result + "_item").find('[id="list_' + result + '_progress"]');
+                    //var progress = results[result].task_status.percent.toString() + '%';
+                    //progressBar.css('width', progress);
+                    //progressBar.html(progress);
                 }
-            });
-        };
 
+                //debugger;
+                //for ( instance in data['message']['progress'] ) {
+                //}
+            }
 
-    </script>
+            if (data['result'] == 'SUCCESS') {
+                alert("done success")
+                $("#evacuate_node_button").text("Evacuation successful!");
+            } else if (data['result'] == 'FAILURE') {
+                alert("done error")
+            } else {
+                setTimeout(function() {
+                    evacuate_node_progress(status_url);
+                }, 2000);
+            }
+        });
+    }
+</script>
+<script>
+    function start_migration_task(instance_name, cluster_name) {
+        // send ajax POST request to start background job
+        return $.ajax({
+            type: 'POST',
+            url: '/migrate',
+            data: { instance_name: instance_name, cluster_name: cluster_name },
+            success: function(data, status, request) {
+                status_url = request.getResponseHeader('Location');
+                console.log(status_url);
+                migrate_instance_progress(status_url, instance_name);
+            },
+        });
+    }
+    function migrate_instance_progress(status_url, instance_name) {
+        // get the status_url for the migration task
+        // and call the update_progress function to update the UI
+        $.getJSON(status_url, function(job_data) {
+            update_progress(job_data, instance_name);
+            if (job_data.state != 'SUCCESS' && job_data.state != 'FAILURE') {
+                setTimeout(function() {
+                    migrate_instance_progress(status_url, instance_name);
+                }, 2000); // rerun in 2 seconds
+            }
+         });
+    }
+    function update_progress(job_data, instance_name) {
+              
+        console.log(job_data);
+
+        progressbar_element = $('#list_' + instance_name.replace(/\./g,'_') + '_progress');
+        status_div = $('#list_' + instance_name.replace(/\./g,'_') + '_item');
+
+        percent = parseInt(job_data.task_status.percent);
+        progressbar_element.css('width', percent + '%');
+        progressbar_element.text(percent + '%');
+        // Disable migrate button
+        status_div.find(".btn-xs").text("In progress");
+        status_div.find(".btn-xs").attr("disabled", "disabled");
+
+        // Update instance line with job status
+        if (job_data.task_state != 'PENDING' && job_data.task_state != 'JSTARTED') {
+                // Aside from PENDING means ganeti job has been submitted and has a state
+                status_div.find("#instance_migrate_status").text("[" + job_data.task_status.job_details.opstatus[0] + "]")
+                status_div.find(".btn-xs").text(job_data.task_status.job_details.opstatus[0]);
+        }
+        if (job_data.task_state == 'SUCCESS') {
+            status_div.find("#instance_migrate_detail").text('Result: ' + job_data.task_status.job_status );
+            if (job_data.task_status.job_status == 'Success'){
+                progressbar_element.addClass("progress-bar-success")
+                status_div.parent().append(status_div);
+            } else {
+                progressbar_element.addClass("progress-bar-danger")
+            }
+        } else if (job_data.task_state == 'FAILURE') {
+            status_div.find("#instance_migrate_status").text('Result: ' + job_data.task_status.job_status);
+        }
+    }
+</script>
 
 </div> <!-- container -->
 {% endblock %}
