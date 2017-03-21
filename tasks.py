@@ -10,13 +10,11 @@ from celery.decorators import task
 
 from ganeti_utils import cluster_connection, get_node_info,\
     get_cluster_info, GANETI_CLUSTER
+from ipmi import get_ipmi_info
+from ici import sched_downtime 
 
 celery_app = Celery('nodevac', broker="redis://localhost:6379/0")
 celery_app.conf.result_backend = "redis://localhost:6379/0"
-
-#IPMI_USER = "Administrator"
-IPMI_USER = "admin"
-IPMI_PASS = ""
 
 @task(bind=True)
 def evacuate_node_task(self, node_name, cluster_name):
@@ -138,21 +136,22 @@ def shutdown_node_task(self, node_name, cluster_name):
     """
     cluster_conn = cluster_connection(cluster_name)
     node_info = cluster_conn.GetNode(node_name)
-    node_tags = node_info["tags"]
 
     if node_info["pinst_cnt"] != 0:
         return 'Node is not empty. Refusing to proceed.'
 
-    for node in node_tags:
-        ipmi_host = node.split(':')[1]
-    #print ipmi_host
+    ipmi_info = get_ipmi_info(node_name, cluster_name)
+
     node_drain_job = cluster_conn.SetNodeRole(node_name, "offline")
     cluster_conn.WaitForJobCompletion(node_drain_job)
 
-    ipmi_status_cmd = "ipmitool -H " + ipmi_host + " -U " + IPMI_USER + " -I lanplus -P " + IPMI_PASS + " power status"
-    ipmi_shut_cmd = "ipmitool -H " + ipmi_host + " -U " + IPMI_USER + " -I lanplus -P " + IPMI_PASS + " power soft"
+    ipmi_status_cmd = ("ipmitool -H " + ipmi_info["host"] + " -U " +
+                       ipmi_info["username"] + " -I lanplus -P " +
+                       ipmi_info["password"] + " power status")
+    ipmi_shut_cmd = ("ipmitool -H " + ipmi_info["host"] + " -U " +
+                     ipmi_info["username"] + " -I lanplus -P " +
+                     ipmi_info["password"] + " power soft")
     ipmi_status_regex = "Chassis Power is ([a-z]*)\\n"
-    #print(ipmi_shut_cmd)
 
     message = "Sending shutdown signal to host " + ipmi_host + "."
     try:
@@ -181,16 +180,13 @@ def startup_node_task(node_name, cluster_name):
     """
     cluster_conn = cluster_connection(cluster_name)
     node_info = cluster_conn.GetNode(node_name)
-    node_tags = node_info["tags"]
-    # abstract this
-    # throws IndexError
-    for node in node_tags:
-        ipmi_host = node.split(':')[1]
+    ipmi_info = get_ipmi_info(node_name, cluster_name)
 
     ping_cmd = "ping -c 1 -w 1 " + node_name
-    print("Sending wakeup signal to host " + ipmi_host + ".")
-    ipmi_up_cmd = "ipmitool -H " + ipmi_host + " -U " + IPMI_USER + \
-        " -I lanplus -P " + IPMI_PASS + " power up"
+    print("Sending wakeup signal to host " + ipmi_info["host"] + ".")
+    ipmi_up_cmd = ("ipmitool -H " + ipmi_info["host"] + " -U " +
+                   ipmi_info["username"] + " -I lanplus -P " +
+                   ipmi_info["password"] + " power up")
     print(ipmi_up_cmd)
     ipmi_up_out = subprocess.check_output(ipmi_up_cmd, shell=True)
     print(ipmi_up_out)
