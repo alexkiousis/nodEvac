@@ -21,14 +21,19 @@ def evacuate_node_task(self, node_name, cluster_name):
     """ Handles the tasks needed to evacuate a Ganeti node."""
     print("Begin node evacuation task for node " + node_name)
     evac_status = {}
+
     cluster_conn = cluster_connection(cluster_name)
     node_info = get_node_info(node_name, cluster_name)
+
     evac_status["role"] = node_info["role"]
     evac_status["pinst_cnt"] = node_info["pinst_cnt"]
     evac_status["inst_done"] = 0
     print(evac_status)
     self.update_state(state='E_STARTED',
                       meta={'status': evac_status})
+
+    maintenancetag_job = cluster_conn.AddNodeTags(node_name, ['maintenance'])
+    cluster_conn.WaitForJobCompletion(maintenancetag_job)
 
     if evac_status["role"] != "Drained":
         print('Current role is :' + evac_status["role"] + ". Draining...")
@@ -175,7 +180,6 @@ def shutdown_node_task(self, node_name, cluster_name):
             break
     return "IPMI host is down."
 
-
 @task()
 def startup_node_task(node_name, cluster_name):
     """
@@ -208,4 +212,10 @@ def startup_node_task(node_name, cluster_name):
     node_readd_job = cluster_conn.SetNodeRole(node_name, "regular")
     node_readd_job_status = cluster_conn.WaitForJobCompletion(node_readd_job)
 
-    return "Host is up."
+    maintenancetag_job = cluster_conn.DeleteNodeTags(node_name, ['maintenance'])
+    cluster_conn.WaitForJobCompletion(maintenancetag_job)
+
+    if node_readd_job_status:
+        return "Host is up."
+    else:
+        return "Host is up but coundn't read to cluster."
