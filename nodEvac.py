@@ -52,18 +52,18 @@ def evacuate_node():
     Triggers a task for node evacuation.
     Return a JSON view with the URL to get the task status.
     """
-    #view_key = 'evacuate_node_' + request.form["cluster_name"] + "_"\
-    #        + request.form["node_name"]
-    #redis_conn = redis.StrictRedis()
-    #task_id = redis_conn.get(view_key)
+    view_key = ('nodEvac:evacuate_node:' + request.form["cluster_name"] + ":"\
+            + request.form["node_name"])
+    redis_conn = redis.StrictRedis()
+    task_id = redis_conn.get(view_key)
     # if empty there is no running task, so trigger one
-    #if task_id == '' or task_id is None:
-    task = evacuate_node_task.apply_async(kwargs={
-        'node_name': request.form['node_name'],
-        'cluster_name': request.form['cluster_name']
-    })
-    #redis_conn.set(view_key, task.id)
-    task_id = task.id
+    if task_id == '' or task_id is None:
+        task = evacuate_node_task.apply_async(kwargs={
+            'node_name': request.form['node_name'],
+            'cluster_name': request.form['cluster_name']
+        })
+        redis_conn.set(view_key, task.id)
+        task_id = task.id
     # else return the running id
     return jsonify({}), 202, {
         'Location': url_for('evacjob_taskstatus', task_id=task_id)}

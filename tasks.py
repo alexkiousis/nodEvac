@@ -7,6 +7,7 @@ import re
 
 from celery import Celery
 from celery.decorators import task
+import redis
 
 from ganeti_utils import cluster_connection, get_node_info,\
     get_cluster_info, GANETI_CLUSTER
@@ -85,6 +86,13 @@ def evacuate_node_task(self, node_name, cluster_name):
     if node_offline_job_status:
         evac_status["role"] = "Offline"
         print("Node drained.")
+
+    # Remove the redis key refering to this task, now that we are done.k
+    redis_conn = redis.StrictRedis()
+    redis_key = ('nodEvac:evacuate_node:' + request.form["cluster_name"] + ":"\
+            + request.form["node_name"])
+    redis_conn.delete(redis_key
+
     self.update_state(state='E_OFFLINING',
                       meta={'status': evac_status,
                             'progress': migration_progress
