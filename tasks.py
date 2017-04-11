@@ -159,8 +159,8 @@ def shutdown_node_task(self, node_name, cluster_name):
     ipmi_status_regex = "Chassis Power is ([a-z]*)\\n"
 
     print("Sending downtime command for host.")
-    # Send downtime command for 2h
-    sched_downtime(node_name, '3600')
+    # Send downtime command for 3h
+    sched_downtime(node_name, '10800')
 
     message = "Sending shutdown signal to host " + ipmi_info["host"] + "."
     try:
