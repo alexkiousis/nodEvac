@@ -62,7 +62,6 @@
         <ul class="list-group">
         {% for node in cluster_info.nodes | sort %}
             <div class="list-group-item">
-                <i class="fa fa-server" aria-hidden="true"></i>
                 <a href="{{ url_for('ganeti_node_view', node_name=node.name, cluster_name=cluster_info.name ) }}"> {{ node.name }} </a>
                 <span class="badge pull-right">{{ node.pinst_cnt }}</span>
             </div>

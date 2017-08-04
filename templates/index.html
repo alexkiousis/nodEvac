@@ -8,13 +8,37 @@
     <div class="panel panel-default">
 
         <div class="panel-heading">
+
+		<div class="btn-group pull-right">
+			<button type="button" class="btn">
+				Jobs
+				<span class="badge">
+					{{ running_evac_jobs | length }}
+				</span>
+			</button>
+			<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+				<span class="caret"></span>
+				<span class="sr-only">Toggle Dropdown</span>
+			</button>
+			<ul class="dropdown-menu">
+				{% for job in running_evac_jobs %}
+				<div class="list-group-item">
+					<i class="fa fa-circle-o-notch" aria-hidden="true"></i>
+					<a href="{{ url_for('ganeti_node_view', node_name=job.node_name, cluster_name=job.cluster_name ) }}">
+					{{ job.node_name }}
+					</a>
+				</div>
+				{% endfor %}
+			</ul>
+		</div>
+
 		<ol class="breadcrumb">
-		<li class="active">
-		    <span class="glyphicon glyphicon-home" aria-hidden="true"></span>
-		    <a href="{{ url_for('index') }}">
-			Home
-		    </a>
-		</li>
+			<li class="active">
+				<span class="glyphicon glyphicon-home" aria-hidden="true"></span>
+				<a href="{{ url_for('index') }}">
+					Home
+				</a>
+			</li>
 		</ol>
 
 		<div id="ssearchBox" class="input-group" >

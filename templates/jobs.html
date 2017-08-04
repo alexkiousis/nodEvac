@@ -1,0 +1,50 @@
+{% extends 'layout.html' %}    
+
+{% block title %}
+Running Jobs
+{% endblock %}
+
+{% block body %}
+
+<div class="container">
+
+    <div class="panel panel-default">
+
+        <div class="panel-heading">
+
+		<ol class="breadcrumb">
+		    <li>
+			<span class="glyphicon glyphicon-home" aria-hidden="true"></span>
+			<a href="{{ url_for('index') }}">
+				Home
+			</a>
+		    </li>
+		    <li>
+			<span class="fa fa-sitemap" aria-hidden="true"></span>
+                                Jobs
+		    </li>
+		</ol>
+
+
+        </div>  <!-- panel-heading -->
+
+        <div class="panel-body" style="padding:0px;">
+
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#tab1default" data-toggle="tab">Nodes</a></li>
+            </ul>
+
+        <ul class="list-group">
+        {% for job in running_evac_jobs %}
+            <div class="list-group-item">
+                <i class="fa fa-server" aria-hidden="true"></i>
+                {{ job }}
+            </div>
+        {% endfor %}
+        </ul>
+
+        </div>  <!-- panel-body -->
+
+    </div> <!-- panel -->
+
+{% endblock %}
