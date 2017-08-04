@@ -15,13 +15,36 @@ flask_app = Flask(__name__)
 @flask_app.route('/')
 def index():
     """ list all available clusters and search bar"""
-    return render_template('index.html', ganeti_clusters=GANETI_CLUSTER.keys())
+    running_evac_jobs = get_running_jobs()
+    return render_template('index.html', ganeti_clusters=GANETI_CLUSTER.keys(),
+                           running_evac_jobs=running_evac_jobs)
 
 @flask_app.route('/cluster/<cluster_name>')
 def ganeti_cluster_view(cluster_name):
     if cluster_name in GANETI_CLUSTER.keys():
         cluster_info = get_cluster_info(cluster_name)
         return render_template('cluster.html', cluster_info=cluster_info)
+
+@flask_app.route('/jobs')
+def list_evacuate_jobs():
+    running_evac_jobs = get_running_jobs()
+    return render_template('jobs.html', running_evac_jobs=running_evac_jobs)
+
+def get_running_jobs():
+    """
+    Get a list of currently running jobs from redis.
+
+    @return running_evac_jobs: list of dictionaries
+    """
+    redis_conn = redis.StrictRedis()
+    running_evac_jobs = []
+    for running_evac_job  in redis_conn.scan_iter("nodEvac:evacuate_node:*"):
+        job_info = {}
+        _, _, cluster_name, node_name = running_evac_job.split(':')
+        job_info["node_name"] = node_name
+        job_info["cluster_name"] = cluster_name
+        running_evac_jobs.append(job_info)
+    return running_evac_jobs
 
 @flask_app.route('/<cluster_name>/<node_name>')
 def ganeti_node_view(node_name, cluster_name):
