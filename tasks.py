@@ -82,16 +82,15 @@ def evacuate_node_task(self, node_name, cluster_name):
                          )
     print("Node emptied. Continuing.")
     node_offline_job = cluster_conn.SetNodeRole(node_name, "offline")
-    node_offline_job_status = cluster_conn.WaitForJobCompletion(node_drain_job)
+    node_offline_job_status = cluster_conn.WaitForJobCompletion(node_offline_job)
     if node_offline_job_status:
         evac_status["role"] = "Offline"
         print("Node drained.")
 
     # Remove the redis key refering to this task, now that we are done.k
     redis_conn = redis.StrictRedis()
-    redis_key = ('nodEvac:evacuate_node:' + request.form["cluster_name"] + ":"\
-            + request.form["node_name"])
-    redis_conn.delete(redis_key
+    redis_key = ('nodEvac:evacuate_node:' + cluster_name + ":" + node_name)
+    redis_conn.delete(redis_key)
 
     self.update_state(state='E_OFFLINING',
                       meta={'status': evac_status,
